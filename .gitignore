@@ -1,2 +1,3 @@
 *.txt
 Raw_RG_Data/*
+.ipynb_checkpoints/
