@@ -1,3 +1,8 @@
 *.txt
 Raw_RG_Data/*
 .ipynb_checkpoints/
+*.png
+week_7_variograms.ipynb
+week_7_variograms_2.ipynb
+week_7_variograms_r2py.ipynb
+
