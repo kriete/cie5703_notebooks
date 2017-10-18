@@ -5,4 +5,12 @@ Raw_RG_Data/*
 week_7_variograms.ipynb
 week_7_variograms_2.ipynb
 week_7_variograms_r2py.ipynb
+Radar_images/
+radar_sent/
+temp/
+Raw_Radar_Data
+*.csv
+*.gz
+*.pdf
+*.7z
 
