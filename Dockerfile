@@ -1,79 +1,55 @@
-FROM rpy2/rpy2:latest
+FROM rpy2/jupyter:latest
 
-MAINTAINER Laurent Gautier <lgautier@gmail.com>
-
-ARG DEBIAN_FRONTEND=noninteractive
+MAINTAINER Andreas Krietemeyer
 
 USER root
 
-RUN \
-  apt-get update -qq && \
-  apt-get install -y npm nodejs-legacy && \
-  rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
+RUN apt-get upgrade
 
-USER ${NB_USER}
+RUN apt-get install -y software-properties-common python-software-properties
+RUN apt-get install -y apt-transport-https
+RUN apt-get update
 
-# note: installing ipywidgets requires a follow-up "jupyter nbextension enable" 
-RUN \
-  npm install -g configurable-http-proxy && \
-  pip3 --no-cache-dir install jupyter notebook && \
-  pip3 --no-cache-dir install jupyterlab && \
-  jupyter serverextension enable --py jupyterlab --sys-prefix && \
-  pip3 --no-cache-dir install bokeh && \
-  pip3 --no-cache-dir install ipywidgets && \
-  jupyter nbextension enable --py --sys-prefix widgetsnbextension && \
-  pip3 --no-cache-dir install jupyterhub && \
-  rm -rf /root/.cache
 
-ENV SHELL /bin/bash
-ENV NB_USER jupyteruser
-ENV HOME /home/${NB_USER}
-ENV NB_UID 1000
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+RUN add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu xenial/'
+RUN apt-get update
 
-# Create user
-RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER
 
-# Grant sudo rights to install packages
-RUN echo ${NB_USER} 'ALL=(ALL) NOPASSWD: /usr/bin/apt-get' >> /etc/sudoers
+RUN apt-get install -y r-recommended
+RUN apt-get install -y python3
+RUN apt-get -y install python3-pip
+RUN apt-get install -y libgdal-dev libevent-dev python-dev build-essential
+RUN add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable
+RUN apt update
+RUN apt upgrade -y
+RUN apt-get install -y gdal-bin python-gdal python3-gdal
+RUN apt-get install -y python-gdal
+RUN apt-get install -y libproj-dev proj-data proj-bin
+RUN apt-get install -y git
 
-# Add Tini
-ARG TINI_VERSION=v0.15.0
-RUN wget --quiet https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini && \
-    mv tini /usr/local/bin/tini && \
-    chmod +x /usr/local/bin/tini
 
-USER $NB_USER
+RUN pip3 install --upgrade pip
 
-# Setup  home directory and notebook config
-RUN mkdir /home/$NB_USER/work && \
-    mkdir /home/$NB_USER/.jupyter && \
-    mkdir /home/$NB_USER/.local && \
-    echo "cacert=/etc/ssl/certs/ca-certificates.crt" > /home/$NB_USER/.curlrc && \
-    echo "c.NotebookApp.ip = '0.0.0.0'" >> /home/$NB_USER/.jupyter/jupyter_notebook_config.py && \
-    python3.5 -m venv /home/$NB_USER/py35_env && \
-    echo "source /home/$NB_USER/py35_env/bin/activate" >> /home/$NB_USER/.bashrc && \
-    echo "echo Python virtual environment activated. Write \"deactivate\" to exit it." >> /home/$NB_USER/.bash
+RUN pip3 install jupyter
+RUN pip3 install numpy pandas matplotlib rpy2
 
-USER root
+RUN echo "r <- getOption('repos'); r['CRAN'] <- 'http://cran.us.r-project.org'; options(repos = r);" > ~/.Rprofile
+RUN Rscript -e "install.packages('sp')"
+RUN Rscript -e "install.packages('gstat')"
+RUN Rscript -e "install.packages('rgdal', type = 'source')"
+RUN Rscript -e "install.packages('intamap')"
 
-WORKDIR ${HOME}
+USER jupyteruser
 
-EXPOSE 8888
+COPY week_7_spatial_students.ipynb week_7_spatial_students.ipynb
+COPY gauge_xy.csv gauge_xy.csv
+COPY radar_xy.csv radar_xy.csv
+COPY charlotte_2_rg_2011.csv charlotte_2_rg_2011.csv
+COPY radar_snap_2011_08_01-00_00.csv ./radar_sent/radar_snap_2011_08_01-00_00.csv
+COPY radar_snap_2011_08_05-16_00.csv ./radar_sent/radar_snap_2011_08_05-16_00.csv
+COPY radar_snap_2011_08_05-17_00.csv ./radar_sent/radar_snap_2011_08_05-17_00.csv
+COPY radar_snap_3h_2011_08_05-15_00.csv ./radar_sent/radar_snap_3h_2011_08_05-15_00.csv
+COPY radar_snap_24h_2011_08_05-00_00.csv ./radar_sent/radar_snap_24h_2011_08_05-00_00.csv
 
-ENTRYPOINT ["/usr/local/bin/tini", "--"]
-CMD ["start-notebook.sh"]
-
-# Add Jupyter script(s) emerging as ad hoc interface
-RUN \
-  git clone --depth=1 https://github.com/jupyter/docker-stacks.git && \
-  cd docker-stacks/base-notebook && \
-  cp start.sh /usr/local/bin/ && \
-  cp start-notebook.sh /usr/local/bin/ && \
-  cp start-singleuser.sh /usr/local/bin/ && \
-  mkdir -p /etc/jupyter/ && \
-  cp jupyter_notebook_config.py /etc/jupyter/ && \
-  chown -R "${NB_USER}":users /etc/jupyter/ && \
-  cd ../../ && \
-  rm -rf docker-stacks
-
-USER $NB_USER
